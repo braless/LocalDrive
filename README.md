@@ -1,5 +1,9 @@
 # LocalDrive v2.4.0
 
+[![Release](https://github.com/braless/LocalDrive/actions/workflows/release.yml/badge.svg)](https://github.com/braless/LocalDrive/actions/workflows/release.yml)
+[![CI](https://github.com/braless/LocalDrive/actions/workflows/ci.yml/badge.svg)](https://github.com/braless/LocalDrive/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 一个**零依赖的文件夹发布服务**：把本机任意多个目录通过 HTTP 共享出去，并把「发布某个文件 → 拿到一条可分享链接」压缩成一次右键操作。
 
 纯 Go 标准库实现，编译产物是**单个可执行文件**，无运行时依赖（不需要 .NET / Python / VC 运行库 / glibc），**无需管理员或 root 权限**即可运行。

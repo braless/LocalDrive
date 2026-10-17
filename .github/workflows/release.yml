@@ -70,7 +70,8 @@ jobs:
       - name: 生成校验和
         run: |
           cd dist
-          sha256sum * > checksums.txt
+          # 排除 checksums.txt 自身，避免把空文件也算进去
+          sha256sum $(ls | grep -v '^checksums\.txt$') > checksums.txt
           cat checksums.txt
 
       - name: 创建 Release 并上传附件
