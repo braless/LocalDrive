@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------- 构建产物
+/LocalDrive.exe
+/LocalDrive-linux
+/LocalDrive-linux-arm64
+/dist/
+*.exe
+*.exe~
+*.test
+*.out
+
+# ---------------------------------------------------------------- 运行时数据
+# config.ini 含本机路径与 IP，不入库；仓库里放 config.example.ini
+/config.ini
+/config.ini.bak
+/published/
+/state.json
+*.log
+*.log.old
+
+# ---------------------------------------------------------------- 编辑器 / 系统
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------- 工作区元数据
+.workbuddy-ai/
