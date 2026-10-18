@@ -25,6 +25,22 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      # secrets 为空时 metadata-action 会拼出 "/localdrive" 这种畸形镜像名，
+      # 报错信息很难懂。提前拦一下，直接指出缺哪个。
+      - name: 检查 Docker Hub 凭据
+        env:
+          U: ${{ secrets.DOCKERHUB_USERNAME }}
+          T: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$U" ] || missing="$missing DOCKERHUB_USERNAME"
+          [ -n "$T" ] || missing="$missing DOCKERHUB_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少 secrets:$missing —— 请在 Settings → Secrets and variables → Actions 中配置"
+            exit 1
+          fi
+          echo "将推送到 docker.io/$U/localdrive"
+
       - name: 设置 QEMU（arm64 跨架构构建）
         uses: docker/setup-qemu-action@v3
 
