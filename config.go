@@ -13,7 +13,7 @@ import (
 
 const (
 	appName    = "LocalDrive"
-	appVersion = "2.4.0"
+	appVersion = "2.5.0"
 
 	// 托盘窗口类名，供 WM_COPYDATA 进程间通信定位
 	trayWindowClass = "LocalDrive.TrayWindow.v2"

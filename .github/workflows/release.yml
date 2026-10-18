@@ -1,7 +1,7 @@
 name: Release
 
 # 推一个 v* 标签即可自动构建三平台并发布到 Releases：
-#   git tag v2.4.0 && git push origin v2.4.0
+#   git tag v2.5.0 && git push origin v2.5.0
 on:
   push:
     tags:
@@ -12,6 +12,33 @@ permissions:
   contents: write
 
 jobs:
+  # 手动触发时明确告知「不会创建 Release」。
+  # 否则 release job 因 ref 不是标签而被静默跳过，整次运行显示绿色，
+  # 很容易误以为发版成功。
+  notice:
+    name: 手动触发说明
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 说明本次不发布
+        run: |
+          echo "::warning::本次为手动触发，只编译不创建 Release。要正式发版请推送 v* 标签。"
+          {
+            echo "### ⚠️ 本次未创建 Release"
+            echo ""
+            echo "手动触发只做编译验证。三个平台的二进制已作为 workflow artifact 上传，"
+            echo "可在本次运行页面底部下载。"
+            echo ""
+            echo "要正式发版，推送一个 \`v*\` 标签："
+            echo ""
+            echo '```bash'
+            echo "git tag v2.5.0"
+            echo "git push origin v2.5.0"
+            echo '```'
+            echo ""
+            echo "标签推送会触发完整流程：三平台编译 → 生成校验和 → 创建 Release。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build:
     name: 构建 ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest

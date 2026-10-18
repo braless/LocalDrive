@@ -5,10 +5,11 @@ name: Docker
 #   DOCKERHUB_USERNAME   Docker Hub 用户名
 #   DOCKERHUB_TOKEN      Docker Hub Access Token（Read & Write，不是登录密码）
 on:
-  # 只跟随版本标签与手动触发：镜像发布与版本对齐，
-  # 也避免 secrets 尚未配置时因推送 main 产生一次失败运行。
-  push:
-    tags: ['v*']
+  # 暂时只保留手动触发：Docker Hub secrets 尚未配置，
+  # 打 tag 会连带触发本工作流并因缺少凭据失败，淹没 Release 的结果。
+  # 配好 DOCKERHUB_USERNAME / DOCKERHUB_TOKEN 后，把下面两行取消注释即可。
+  # push:
+  #   tags: ['v*']
   workflow_dispatch:
 
 permissions:

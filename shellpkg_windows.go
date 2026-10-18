@@ -28,7 +28,7 @@ const (
 	// 与 AppxManifest.xml 中 Identity/@Name 一致
 	win11PkgName = "LocalDrive.PublishShell"
 	// 包版本（必须是四段式）
-	win11PkgVersion = "2.4.0.0"
+	win11PkgVersion = "2.5.0.0"
 	// 菜单显示名，用户要求固定为「发布」
 	win11VerbTitle = "发布"
 )

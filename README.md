@@ -1,4 +1,4 @@
-# LocalDrive v2.4.0
+# LocalDrive v2.5.0
 
 [![Release](https://github.com/braless/LocalDrive/actions/workflows/release.yml/badge.svg)](https://github.com/braless/LocalDrive/actions/workflows/release.yml)
 [![CI](https://github.com/braless/LocalDrive/actions/workflows/ci.yml/badge.svg)](https://github.com/braless/LocalDrive/actions/workflows/ci.yml)
@@ -459,8 +459,8 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
 发布一个新版本只需打标签：
 
 ```bash
-git tag v2.4.0
-git push origin v2.4.0
+git tag v2.5.0
+git push origin v2.5.0
 ```
 
 工作流会在 Ubuntu runner 上交叉编译（`CGO_ENABLED=0`，无需目标平台），产出三个附件：
@@ -489,17 +489,16 @@ Token 在 Docker Hub → Account settings → Personal access tokens → New acc
 
 | 触发方式 | 产出的镜像标签 |
 | --- | --- |
-| 推送 `v*` 标签 | `2.4.1`、`2.4`、`latest`、`sha-xxxxxxx` |
-| 手动触发（`workflow_dispatch`，在 `main` 上执行） | `main`、`sha-xxxxxxx` |
+| 推送 `v*` 标签 | `2.5.0`、`2.5`、`latest`、`sha-xxxxxxx` |
+| 手动触发（`workflow_dispatch`） | 当前分支名、`sha-xxxxxxx` |
 
 `sha-<短哈希>` 标签便于回滚到具体提交。工作流用 `type=gha` 缓存，二次构建会复用 BuildKit 层缓存。
 
-工作流**不监听 `main` 分支推送**——镜像与版本号对齐，日常提交不必反复构建；同时避免 secrets 尚未配置时因推送代码就产生一次失败运行。要发布镜像，打标签或手动触发即可：
+工作流**不监听 `main` 分支推送**——镜像与版本号对齐，日常提交不必反复构建。
 
-```bash
-git tag v2.4.1
-git push origin v2.4.1
-```
+> ⚠️ **目前 `v*` 标签触发是注释掉的**。Docker Hub secrets 还没配置，此时打标签会让本工作流因缺少凭据失败，把 Release 的成功结果淹没。配好两个 secret 后，把 `.github/workflows/docker.yml` 里 `on.push.tags` 那两行取消注释，镜像就会随版本标签一起发布。
+>
+> 在此之前可以单独构建镜像：Actions 页面 → 左侧 `Docker` → Run workflow。
 
 本地构建不需要任何凭据：
 
