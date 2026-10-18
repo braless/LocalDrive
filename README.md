@@ -90,15 +90,31 @@ chmod +x LocalDrive-linux
 ./LocalDrive-linux
 ```
 
-首次运行会在**可执行文件同目录**生成 `config.ini`，随后前台阻塞运行，`Ctrl+C` 退出。
+首次运行会在**可执行文件同目录**生成 `config.ini`。从终端启动时，程序先在前台跑 20 秒：
+
+```
+LocalDrive 已启动: http://192.168.0.132:8080/ (端口 8080)
+20 秒后自动转入后台运行，按 Ctrl+C 立即停止
+```
+
+- **20 秒内按 `Ctrl+C`**：立即停止，不会留下后台进程。
+- **20 秒内不操作**：自动脱离终端转入后台，终端提示符回来，可以直接关掉 SSH 会话。
+- **想一直留在前台**：加 `-foreground`（或 `-f`）。
+
+转入后台的做法是重新拉起一个 `setsid` 子进程接管服务：先停服务、释放端口和单实例锁，再启动新进程，所以新进程仍绑定同一个端口。交接期间服务会短暂中断——通常几百毫秒；若有下载正在进行，会等它结束（最多 2 秒）。
 
 ```bash
-# 后台常驻（简单方式）
-nohup ./LocalDrive-linux >/dev/null 2>&1 &
+# 强制留在前台
+./LocalDrive-linux -foreground
+
+# 跳过 20 秒等待，立即后台（stdin 不是终端 → 不触发倒计时）
+setsid ./LocalDrive-linux </dev/null >/dev/null 2>&1 &
 
 # 发布文件（需已安装 xclip / xsel / wl-copy 之一）
 ./LocalDrive-linux -publish /path/to/file.pdf
 ```
+
+由 systemd、nohup、`setsid` 启动的实例**不会**触发倒计时——判定依据是 stdin 是否指向真实终端（`/dev/pts/*`、`/dev/tty*`），`/dev/null` 不算。
 
 > 前台运行时程序会把访问地址打印到终端。由于 Linux 版**不把日志回显到 stdout**，排障请查看日志文件（位置见第五节）。
 
@@ -329,7 +345,8 @@ http://192.168.1.7:8081/raw/%E6%96%87%E6%A1%A3.pdf          ← 单目录模式�
 
 | 参数 | Windows | Linux | 说明 |
 | --- | :---: | :---: | --- |
-| 无参数 | ✅ | ✅ | 正常启动（Windows 托盘常驻 / Linux 前台运行） |
+| 无参数 | ✅ | ✅ | 正常启动（Windows 托盘常驻 / Linux 前台运行，从终端启动时 20 秒后自动转后台） |
+| `-foreground` / `-f` | ❌ | ✅ | 强制留在前台，不自动转后台 |
 | `-publish <路径...>` | ✅ | ✅ | 发布文件并复制链接 |
 | `-edit-config` / `--config` | ✅ | ✅ | 打开 `config.ini` |
 | `-console` | ✅ | ❌ | 附加到终端输出实时日志（仅 Windows 有 GUI 子系统） |
@@ -542,14 +559,14 @@ docker run --rm -p 8080:8080 -v /srv/share:/share:ro localdrive:dev
 
 | # | 问题 | 说明与影响 |
 | --- | --- | --- |
-| 30 | ⚠️ **日志与状态落在 `/tmp`** | Linux 下 `LOCALAPPDATA` / `APPDATA` 均为空，`appDir()` 退回 `os.TempDir()`，即 `/tmp/LocalDrive/`。**重启后日志和 `state.json` 会丢失**，且多用户共享同一目录。建议后续改为 `$XDG_STATE_HOME` 或 `~/.local/state/LocalDrive`。 |
-| 31 | ⚠️ **无守护进程管理** | 前台运行，关闭终端即退出。生产环境必须自行封装 systemd / supervisord，或用 `nohup`。 |
+| 30 | ⚠️ **日志与状态落在 `/tmp`** | Linux 下 `LOCALAPPDATA` / `APPDATA` 均为空，`appDir()` 退回 `os.TempDir()`，即 `/tmp/LocalDrive/`。**重启后日志和 `state.json` 会丢失**，且多用户共享同一目录。可用 `TMPDIR` 环境变量改变落点（systemd 单元里已这样做），根治方案是改用 `$XDG_STATE_HOME`。 |
+| 31 | ⚠️ **无守护进程管理** | 从终端启动时 20 秒无操作会自动转后台（`-foreground` 可关闭），但**没有开机自启，崩溃也不会被拉起**。生产环境仍建议用 systemd 管理，见第二节的单元示例。 |
 | 32 | ⚠️ **剪贴板依赖外部命令** | 需要 `xclip` / `xsel`（X11）或 `wl-copy`（Wayland）。纯 SSH / 无桌面环境下写入失败，但**链接仍会打印到日志与 stdout**，不会丢失。 |
 | 33 | **无托盘与右键菜单集成** | 无法像 Windows 那样「选中文件 → 右键发布」，只能命令行调用 `-publish`。 |
 | 34 | **`openPath` / `openURL` 静默失败** | 依赖 `xdg-open`；headless 环境下调用无效且不报错。`autoOpen = true` 在服务器上无意义。 |
 | 35 | **日志不回显到 stdout** | `logToStd` 恒为 `false`（该开关只由 Windows 的 `-console` 置位）。终端里只看得到启动地址，其余诊断信息必须读文件——而文件又在 `/tmp`（见 #30）。 |
 | 36 | **`\|` 分隔符与 Linux 文件名冲突** | Linux 允许文件名 / 目录名包含 `\|`。若某个展示目录的**路径本身**含 `\|`，`roots` 会被错误拆分。Windows 文件名不允许 `\|`，无此问题。 |
-| 37 | **单实例锁可能误判** | 锁文件 `/tmp/localdrive.lock` 权限 0666 受 umask 影响。多用户同机时，后一个用户可能因打不开锁文件而被判定为「已在运行」并直接退出。 |
+| 37 | **单实例锁可能误判** | 锁文件 `/tmp/localdrive.lock` 权限 0666 受 umask 影响。多用户同机时，后一个用户可能因打不开锁文件而被判定为「已在运行」并直接退出。锁的文件描述符由包级变量持有，不会因 GC 被提前释放；进程退出或转入后台交接时显式关闭，flock 随之释放。 |
 | 38 | **不支持的参数被静默忽略** | `-install-menu`、`-install-win11`、`-comserver`、`-icon` 传入后不报错，直接进入正常启动流程。 |
 | 39 | **仅 Linux 参与编译** | 平台文件命名为 `*_linux.go`，文件名后缀已把编译范围限定为 `GOOS=linux`。macOS / BSD 等其他 Unix 平台**不会**包含这些文件，编译会因符号缺失而失败。 |
 | 40 | **需匹配目标架构** | 交叉编译产物只对应其 `GOARCH`；在 ARM 设备上运行 amd64 版本会报 `Exec format error`。本版已同时提供 `LocalDrive-linux`（amd64）与 `LocalDrive-linux-arm64`。 |
