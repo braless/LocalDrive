@@ -1,0 +1,27 @@
+# 版本控制与 CI 配置
+.git
+.github
+.gitignore
+.gitattributes
+
+# 本地构建产物
+dist/
+*.exe
+build.bat
+build-all.bat
+
+# 本地运行数据（含本机路径与内网 IP，绝不进镜像）
+config.ini
+published/
+state.json
+*.log
+
+# 工具目录
+.workbuddy-ai
+
+# 不参与编译的文档
+README.md
+LICENSE
+
+# systemd 单元只用于裸机部署
+deploy/localdrive.service

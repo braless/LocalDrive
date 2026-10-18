@@ -126,6 +126,42 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now localdrive
 ```
 
+### Docker
+
+镜像同时提供 `linux/amd64` 与 `linux/arm64`，由 GitHub Actions 构建推送（见 6.2）。
+
+```bash
+docker run -d --name localdrive \
+  -p 8080:8080 \
+  -v /srv/share:/share:ro \
+  -v localdrive-data:/data \
+  <你的DockerHub用户名>/localdrive:latest
+```
+
+容器内约定三个路径：
+
+| 容器路径 | 用途 |
+| --- | --- |
+| `/share` | 默认展示目录（对应 `[paths] roots`），把宿主机目录挂进来 |
+| `/data` | 日志、`state.json`、单实例锁、发布临时目录，**必须持久化** |
+| `/app/config.ini` | 内置默认配置，挂载自己的 `config.ini` 覆盖它 |
+
+使用自定义配置：
+
+```bash
+docker run -d --name localdrive \
+  -p 8080:8080 \
+  -v "$PWD/config.ini:/app/config.ini:ro" \
+  -v /srv/share:/share:ro \
+  -v localdrive-data:/data \
+  <你的DockerHub用户名>/localdrive:latest
+```
+
+> ⚠️ 容器部署有两个高频坑：
+>
+> 1. **分享链接里的 IP 会错**。`[network] urlHost` 留空时程序自动挑本机网卡地址，在容器里挑到的是 `172.17.x.x`，宿主机以外的设备访问不到。请显式设置 `urlHost` 为宿主机 IP，或设置 `publicURL` 为对外域名。
+> 2. **`/data` 不持久化，日志与状态会随容器删除一起消失**。镜像把 `TMPDIR` 固定为 `/data`（`appDir()` 依赖它），不要改这个环境变量——改了等于换了一套运行状态，旧日志和 `state.json` 就找不到了。
+
 ---
 
 ## 三、已实现功能
@@ -395,12 +431,13 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
 
 ### 6.1 自动发布（GitHub Actions）
 
-仓库内置两个工作流：
+仓库内置三个工作流：
 
 | 工作流 | 触发条件 | 作用 |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | 推送到 `main` / `master`、PR、手动 | `gofmt` 校验、`go vet`、三平台编译（不产出文件） |
 | `.github/workflows/release.yml` | 推送 `v*` 标签、手动 | 三平台编译 → 上传产物 → 创建 Release 并附校验和 |
+| `.github/workflows/docker.yml` | 推送 `v*` 标签、`main` / `master`、手动 | 多架构构建镜像 → 推送 Docker Hub（见 6.2） |
 
 发布一个新版本只需打标签：
 
@@ -419,6 +456,36 @@ git push origin v2.4.0
 | `checksums.txt` | 上述文件的 SHA-256 |
 
 Release 说明由 `generate_release_notes` 依据提交记录自动生成。也可在 Actions 页面手动触发 `Release` 工作流（`workflow_dispatch`），但**手动触发不会创建 Release**——`release` job 有 `if: startsWith(github.ref, 'refs/tags/v')` 守卫，只有标签推送才会走到发布环节。
+
+### 6.2 Docker 镜像（GitHub Actions 自动构建）
+
+`Dockerfile` 采用两阶段构建：`golang:1.27-alpine` 编译出静态二进制（`CGO_ENABLED=0`），`alpine:3.21` 运行，以非 root 用户 `localdrive`（uid 10001）启动。镜像内不包含 `config.ini` 的本机路径与内网 IP，那些内容由 `.dockerignore` 排除。
+
+推送前需在仓库 **Settings → Secrets and variables → Actions** 配置两个 secret：
+
+| Secret | 值 |
+| --- | --- |
+| `DOCKERHUB_USERNAME` | Docker Hub 用户名 |
+| `DOCKERHUB_TOKEN` | Docker Hub **Access Token**（权限 Read & Write），不是登录密码 |
+
+Token 在 Docker Hub → Account settings → Personal access tokens → New access token 创建。用 Token 而非密码，是因为账号开启两步验证后密码无法用于 CLI 登录，且 Token 可以随时单独吊销。
+
+| 触发方式 | 产出的镜像标签 |
+| --- | --- |
+| 推送 `v*` 标签 | `2.4.1`、`2.4`、`latest`、`sha-xxxxxxx` |
+| 推送到 `main` / `master` | `main`、`sha-xxxxxxx` |
+| 手动触发（`workflow_dispatch`） | 按当前分支同上 |
+
+`sha-<短哈希>` 标签便于回滚到具体提交。工作流用 `type=gha` 缓存，二次构建会复用 BuildKit 层缓存。
+
+本地构建不需要任何凭据：
+
+```bash
+docker build -t localdrive:dev .
+docker run --rm -p 8080:8080 -v /srv/share:/share:ro localdrive:dev
+```
+
+> 镜像默认关闭 provenance attestation（`provenance: false`）。开启后 Docker Hub 会额外生成一个 `unknown/unknown` 平台的 manifest，部分旧版 Docker 客户端 `docker pull` 时会报平台不匹配。
 
 ---
 

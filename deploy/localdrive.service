@@ -1,0 +1,48 @@
+; ============================================================
+;  LocalDrive systemd 服务单元
+;  安装：
+;    sudo cp deploy/localdrive.service /etc/systemd/system/
+;    sudo systemctl daemon-reload
+;    sudo systemctl enable --now localdrive
+;  查看：
+;    systemctl status localdrive
+;    tail -f /var/lib/localdrive/LocalDrive/LocalDrive.log
+; ============================================================
+[Unit]
+Description=LocalDrive 文件夹发布服务
+Documentation=https://github.com/braless/LocalDrive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+; ↓↓↓ 改成运行服务的普通用户（需要能读你的共享目录）↓↓↓
+User=youruser
+Group=youruser
+
+; 程序所在目录，config.ini 也放这里
+WorkingDirectory=/opt/localdrive
+ExecStart=/opt/localdrive/LocalDrive-linux-amd64
+
+; 崩溃自动拉起；被 kill 或正常退出则不拉起
+Restart=on-failure
+RestartSec=3
+
+; 关键：默认 appDir() 会落到 os.TempDir()（即 /tmp/LocalDrive），
+; 很多发行版 /tmp 是 tmpfs，重启后日志和 state.json 全丢。
+; Go 的 os.TempDir() 优先读 $TMPDIR，改这里即可持久化。
+Environment=TMPDIR=/var/lib/localdrive
+StateDirectory=localdrive
+StateDirectoryMode=0750
+
+; ---- 可选加固（去掉也不会影响运行）----
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+; 唯一允许写入的路径；发布目录也要指到这里，见 config.ini 的 publishDir
+ReadWritePaths=/var/lib/localdrive
+
+[Install]
+WantedBy=multi-user.target
