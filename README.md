@@ -437,7 +437,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | 推送到 `main` / `master`、PR、手动 | `gofmt` 校验、`go vet`、三平台编译（不产出文件） |
 | `.github/workflows/release.yml` | 推送 `v*` 标签、手动 | 三平台编译 → 上传产物 → 创建 Release 并附校验和 |
-| `.github/workflows/docker.yml` | 推送 `v*` 标签、`main` / `master`、手动 | 多架构构建镜像 → 推送 Docker Hub（见 6.2） |
+| `.github/workflows/docker.yml` | 推送 `v*` 标签、手动 | 多架构构建镜像 → 推送 Docker Hub（见 6.2） |
 
 发布一个新版本只需打标签：
 
@@ -473,10 +473,16 @@ Token 在 Docker Hub → Account settings → Personal access tokens → New acc
 | 触发方式 | 产出的镜像标签 |
 | --- | --- |
 | 推送 `v*` 标签 | `2.4.1`、`2.4`、`latest`、`sha-xxxxxxx` |
-| 推送到 `main` / `master` | `main`、`sha-xxxxxxx` |
-| 手动触发（`workflow_dispatch`） | 按当前分支同上 |
+| 手动触发（`workflow_dispatch`，在 `main` 上执行） | `main`、`sha-xxxxxxx` |
 
 `sha-<短哈希>` 标签便于回滚到具体提交。工作流用 `type=gha` 缓存，二次构建会复用 BuildKit 层缓存。
+
+工作流**不监听 `main` 分支推送**——镜像与版本号对齐，日常提交不必反复构建；同时避免 secrets 尚未配置时因推送代码就产生一次失败运行。要发布镜像，打标签或手动触发即可：
+
+```bash
+git tag v2.4.1
+git push origin v2.4.1
+```
 
 本地构建不需要任何凭据：
 
